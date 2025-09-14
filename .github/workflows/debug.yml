@@ -1,0 +1,106 @@
+name: Telegram Connection Test
+
+# 手动触发的调试工作流
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: '测试类型'
+        required: true
+        default: 'telegram'
+        type: choice
+        options:
+        - telegram
+        - full_debug
+
+permissions:
+  contents: read
+
+jobs:
+  telegram-test:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'telegram' || github.event.inputs.test_type == 'full_debug'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Test Telegram Connection
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "🔧 开始Telegram连接测试..."
+          python test_telegram.py
+
+      - name: Debug Environment Variables
+        if: github.event.inputs.test_type == 'full_debug'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          echo "🔍 环境变量调试信息:"
+          echo "BOT_TOKEN length: ${#TELEGRAM_BOT_TOKEN}"
+          echo "CHAT_ID length: ${#TELEGRAM_CHAT_ID}"
+          echo "BOT_TOKEN starts with: ${TELEGRAM_BOT_TOKEN:0:10}..."
+          echo "CHAT_ID: $TELEGRAM_CHAT_ID"
+
+  full-system-debug:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'full_debug'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Debug FGI System
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FGI_RUN_MODE: monitor
+        run: |
+          echo "🔍 完整系统调试..."
+          echo "1. 测试FGI数据获取..."
+          python -c "
+          from src.fgi_notifier import fetch_fgi
+          try:
+              data = fetch_fgi()
+              print(f'✅ FGI数据获取成功，共{len(data)}条记录')
+              if data:
+                  latest = data[-1]
+                  print(f'最新数据: {latest[0]} = {latest[1]}')
+          except Exception as e:
+              print(f'❌ FGI数据获取失败: {e}')
+          "
+
+          echo "2. 测试状态管理..."
+          python -c "
+          from src.state import load_state, save_state
+          try:
+              state = load_state()
+              print(f'✅ 状态文件读取成功')
+              print(f'状态内容: {state}')
+          except Exception as e:
+              print(f'❌ 状态文件读取失败: {e}')
+          "
+
+          echo "3. 运行完整监控逻辑..."
+          python -m src.fgi_notifier monitor
