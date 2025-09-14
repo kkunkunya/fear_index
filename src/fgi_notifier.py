@@ -82,6 +82,7 @@ def main(mode="monitor"):
             - "monitor": 监控模式（默认）- 触发检测 + 被动汇报
             - "bot": Bot命令模式 - 启动Telegram Bot监听命令
             - "scheduled": 定时汇报模式 - 发送早中晚定时汇报
+            - "test": 测试模式 - 强制运行，忽略日期检查
 
     业务流程说明:
     1. 状态管理：加载持久化状态，支持断点续传
@@ -106,11 +107,12 @@ def main(mode="monitor"):
         return run_bot_mode()
     elif mode == "scheduled":
         return run_scheduled_mode()
-    elif mode != "monitor":
-        print(f"Unknown mode: {mode}. Available modes: monitor, bot, scheduled")
+    elif mode != "monitor" and mode != "test":
+        print(f"Unknown mode: {mode}. Available modes: monitor, bot, scheduled, test")
         return 1
 
-    # 监控模式 (默认)
+    # 监控模式 (默认) 和 测试模式
+    # 测试模式会强制运行，忽略日期检查
     # 1. 加载状态
     state = load_state()
 
@@ -144,13 +146,16 @@ def main(mode="monitor"):
         print("Bootstrapped. No historical firing.")
         return 0
 
-    # 5. 无新日数据则跳过
-    last_proc = state.get("last_processed_date")
-    if last_proc:
-        last_proc_date = dt.datetime.strptime(last_proc, "%Y-%m-%d").date()
-        if latest_day <= last_proc_date:
-            print(f"No new day. latest={latest_day}, last_processed={last_proc_date}")
-            return 0
+    # 5. 无新日数据则跳过（测试模式除外）
+    if mode != "test":
+        last_proc = state.get("last_processed_date")
+        if last_proc:
+            last_proc_date = dt.datetime.strptime(last_proc, "%Y-%m-%d").date()
+            if latest_day <= last_proc_date:
+                print(f"No new day. latest={latest_day}, last_processed={last_proc_date}")
+                return 0
+    else:
+        print(f"[测试模式] 忽略日期检查，强制执行处理逻辑")
 
     # 6. 核心策略判定
     fired_levels = []
