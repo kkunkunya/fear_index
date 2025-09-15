@@ -67,7 +67,7 @@ pip install -r requirements.txt
 | 变量名 | 说明 | 示例 |
 |--------|------|------|
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot API Token | `1234567890:ABCDEFGHIJKLMNOP...` |
-| `TELEGRAM_CHAT_ID` | 接收消息的Chat ID | `-100123456789` 或 `123456789` |
+| `TELEGRAM_CHAT_ID` | 接收消息的Chat ID（支持多个） | `123456789,5031618795` 或 `-100123456789 123456789` |
 
 ### 5. 激活GitHub Actions
 

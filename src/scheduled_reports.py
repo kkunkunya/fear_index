@@ -17,7 +17,9 @@ try:
     from telegram import Bot
     from telegram.constants import ParseMode
 except ImportError:
-    print("❌ 缺少 python-telegram-bot 库，请安装: pip install python-telegram-bot==21.5")
+    print(
+        "❌ 缺少 python-telegram-bot 库，请安装: pip install python-telegram-bot==21.5"
+    )
     sys.exit(1)
 
 # 添加项目路径
@@ -41,13 +43,13 @@ class ScheduledReportsHandler:
     def __init__(self):
         """初始化定时汇报处理器"""
         self.bot_token = None
-        self.chat_id = None
+        self.chat_ids = []  # 支持多收件人
         self.bot = None
 
         # 配置日志
         logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.INFO
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            level=logging.INFO,
         )
         self.logger = logging.getLogger(__name__)
 
@@ -58,15 +60,23 @@ class ScheduledReportsHandler:
             return False
 
         # 获取环境变量
-        self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        self.chat_id = os.getenv('TELEGRAM_CHAT_ID')
+        self.bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat_env = os.getenv("TELEGRAM_CHAT_ID")
 
         if not self.bot_token:
             self.logger.error("缺少 TELEGRAM_BOT_TOKEN 环境变量")
             return False
 
-        if not self.chat_id:
+        if not chat_env:
             self.logger.error("缺少 TELEGRAM_CHAT_ID 环境变量")
+            return False
+
+        # 解析多收件人：逗号/分号/空白分隔
+        for sep in [",", ";", "\n", "\r", "\t"]:
+            chat_env = chat_env.replace(sep, " ")
+        self.chat_ids = [x.strip() for x in chat_env.split(" ") if x.strip()]
+        if not self.chat_ids:
+            self.logger.error("TELEGRAM_CHAT_ID 解析为空，请检查格式")
             return False
 
         try:
@@ -79,7 +89,7 @@ class ScheduledReportsHandler:
             return False
 
     async def send_scheduled_report(self, report_type: str) -> bool:
-        """发送定时汇报"""
+        """发送定时汇报（支持多收件人）"""
         if not self.bot:
             self.logger.error("Bot未初始化")
             return False
@@ -96,15 +106,27 @@ class ScheduledReportsHandler:
                 self.logger.warning(f"无法生成{report_type}汇报")
                 return False
 
-            # 发送消息
-            await self.bot.send_message(
-                chat_id=self.chat_id,
-                text=f"```\n{report_content}\n```",
-                parse_mode=ParseMode.MARKDOWN_V2
-            )
+            # 逐个收件人发送，记录成功/失败
+            success_count = 0
+            for cid in self.chat_ids:
+                try:
+                    await self.bot.send_message(
+                        chat_id=cid,
+                        text=f"```\n{report_content}\n```",
+                        parse_mode=ParseMode.MARKDOWN_V2,
+                    )
+                    success_count += 1
+                except Exception as e:
+                    self.logger.error(f"发送到 chat_id={cid} 失败: {e}")
 
-            self.logger.info(f"{report_type}汇报发送成功")
-            return True
+            if success_count > 0:
+                self.logger.info(
+                    f"{report_type}汇报发送完成：成功 {success_count}/{len(self.chat_ids)}"
+                )
+                return True
+            else:
+                self.logger.error(f"{report_type}汇报发送失败：所有收件人均失败")
+                return False
 
         except Exception as e:
             self.logger.error(f"{report_type}汇报发送失败: {e}")
@@ -135,15 +157,19 @@ class ScheduledReportsHandler:
         report_schedule = {
             "morning": MORNING_REPORT_UTC,
             "noon": NOON_REPORT_UTC,
-            "evening": EVENING_REPORT_UTC
+            "evening": EVENING_REPORT_UTC,
         }
 
         for report_type, scheduled_hour in report_schedule.items():
             if current_utc_hour == scheduled_hour:
-                self.logger.info(f"开始发送{report_type}汇报 (UTC {current_utc_hour}:00)")
+                self.logger.info(
+                    f"开始发送{report_type}汇报 (UTC {current_utc_hour}:00)"
+                )
                 results[report_type] = await self.send_scheduled_report(report_type)
             else:
-                self.logger.debug(f"{report_type}汇报非当前时段 (当前: UTC {current_utc_hour}, 预定: UTC {scheduled_hour})")
+                self.logger.debug(
+                    f"{report_type}汇报非当前时段 (当前: UTC {current_utc_hour}, 预定: UTC {scheduled_hour})"
+                )
 
         return results
 
@@ -188,9 +214,11 @@ async def send_current_scheduled_report() -> Optional[bool]:
 
 def is_scheduled_reports_enabled() -> bool:
     """检查定时汇报是否启用"""
-    return (SCHEDULED_REPORTS_ENABLED and
-            os.getenv('TELEGRAM_BOT_TOKEN') is not None and
-            os.getenv('TELEGRAM_CHAT_ID') is not None)
+    return (
+        SCHEDULED_REPORTS_ENABLED
+        and os.getenv("TELEGRAM_BOT_TOKEN") is not None
+        and os.getenv("TELEGRAM_CHAT_ID") is not None
+    )
 
 
 def get_next_report_time() -> Optional[str]:
@@ -206,12 +234,16 @@ def get_next_report_time() -> Optional[str]:
     # 找到下个汇报时间
     for hour in report_hours:
         if hour > current_hour:
-            next_report = current_utc.replace(hour=hour, minute=0, second=0, microsecond=0)
+            next_report = current_utc.replace(
+                hour=hour, minute=0, second=0, microsecond=0
+            )
             return next_report.strftime("%Y-%m-%d %H:%M UTC")
 
     # 如果今天没有更多汇报时间，返回明天的第一个汇报时间
     tomorrow = current_utc + timedelta(days=1)
-    next_report = tomorrow.replace(hour=min(report_hours), minute=0, second=0, microsecond=0)
+    next_report = tomorrow.replace(
+        hour=min(report_hours), minute=0, second=0, microsecond=0
+    )
     return next_report.strftime("%Y-%m-%d %H:%M UTC")
 
 
