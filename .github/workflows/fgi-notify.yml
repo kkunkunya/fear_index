@@ -5,10 +5,10 @@ on:
   schedule:
     # 监控模式：每小时第7分钟运行（被动触发检测 + 自动汇报）
     - cron: "7 * * * *"
-    # 定时汇报：早中晚三个时段
-    - cron: "0 0 * * *"    # 早报 UTC 00:00 (北京08:00)
-    - cron: "0 4 * * *"    # 午报 UTC 04:00 (北京12:00)
-    - cron: "0 12 * * *"   # 晚报 UTC 12:00 (北京20:00)
+    # 定时汇报：早中晚三个时段（UTC半点，换算北京时间为 08:30/12:30/20:30）
+    - cron: "30 0 * * *"    # 早报 UTC 00:30 (北京08:30)
+    - cron: "30 4 * * *"    # 午报 UTC 04:30 (北京12:30)
+    - cron: "30 12 * * *"   # 晚报 UTC 12:30 (北京20:30)
   workflow_dispatch:
     # 手动触发支持选择运行模式
     inputs:
@@ -75,7 +75,7 @@ jobs:
   # 定时汇报任务 - 早中晚定时汇报
   scheduled-reports:
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && (github.event.schedule == '0 0 * * *' || github.event.schedule == '0 4 * * *' || github.event.schedule == '0 12 * * *') || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'scheduled')
+    if: github.event_name == 'schedule' && (github.event.schedule == '30 0 * * *' || github.event.schedule == '30 4 * * *' || github.event.schedule == '30 12 * * *') || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'scheduled')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -97,5 +97,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FGI_RUN_MODE: scheduled
+          # 传递本次触发的cron表达式，便于程序识别具体报表类型
+          RUN_SCHEDULE: ${{ github.event.schedule }}
         run: |
           python -m src.fgi_notifier scheduled

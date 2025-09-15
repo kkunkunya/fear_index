@@ -33,13 +33,17 @@ from src.state import (
 from src.notify import send_telegram
 from src.strategy import compute_fgi7, two_consecutive_ge, crossings
 
+
 # 避免循环导入，动态导入 bot_handler 和 scheduled_reports_handler
 def get_bot_handler():
     from src.bot_handler import bot_handler
+
     return bot_handler
+
 
 def get_scheduled_reports_handler():
     from src.scheduled_reports import scheduled_reports_handler
+
     return scheduled_reports_handler
 
 
@@ -152,7 +156,9 @@ def main(mode="monitor"):
         if last_proc:
             last_proc_date = dt.datetime.strptime(last_proc, "%Y-%m-%d").date()
             if latest_day <= last_proc_date:
-                print(f"No new day. latest={latest_day}, last_processed={last_proc_date}")
+                print(
+                    f"No new day. latest={latest_day}, last_processed={last_proc_date}"
+                )
                 return 0
     else:
         print(f"[测试模式] 忽略日期检查，强制执行处理逻辑")
@@ -248,7 +254,9 @@ def main(mode="monitor"):
     return 0
 
 
-def generate_daily_report(today, latest_val, prev7, today7, fired_levels, final_levels, state):
+def generate_daily_report(
+    today, latest_val, prev7, today7, fired_levels, final_levels, state
+):
     """生成每日数据汇报消息"""
 
     # 如果有最终触发，不重复发送汇报（已经有卖出提醒了）
@@ -327,10 +335,10 @@ def generate_daily_report(today, latest_val, prev7, today7, fired_levels, final_
 def get_cooldown_status(state):
     """获取冷却状态字典"""
     status = {}
-    last_triggers = state.get('last_trigger_at', {})
+    last_triggers = state.get("last_trigger_at", {})
     today = today_utc_date()  # 添加今天的日期
 
-    for threshold in ['70', '80', '90']:
+    for threshold in ["70", "80", "90"]:
         last_trigger = last_triggers.get(threshold)
         if last_trigger:
             days_passed = days_since(last_trigger, today)  # 传入两个参数
@@ -377,22 +385,53 @@ def run_scheduled_mode():
     """运行定时汇报模式"""
     print("⏰ 启动FGI定时汇报模式...")
 
-    try:
-        scheduled_reports_handler = get_scheduled_reports_handler()
-        results = scheduled_reports_handler.run_scheduled_reports_sync()
+    # 新增：通过环境变量读取本次触发的 cron，用于稳态映射到具体报表类型
+    # 说明：GitHub Actions 在 schedule 触发时会提供 github.event.schedule，工作流已传入 RUN_SCHEDULE
+    run_schedule = os.getenv("RUN_SCHEDULE")
 
+    try:
+        handler = get_scheduled_reports_handler()
+
+        # 若提供了 RUN_SCHEDULE，则直接映射成报表类型并强制发送，避免因冷启动或装依赖延迟导致错过整点而不发
+        if run_schedule:
+            # 兼容旧/新两种半点/整点表达，全部映射
+            schedule_to_type = {
+                # 新：UTC 半点（推荐）→ 北京 08:30/12:30/20:30
+                "30 0 * * *": "morning",
+                "30 4 * * *": "noon",
+                "30 12 * * *": "evening",
+                # 旧：UTC 整点（历史配置兼容）
+                "0 0 * * *": "morning",
+                "0 4 * * *": "noon",
+                "0 12 * * *": "evening",
+            }
+
+            report_type = schedule_to_type.get(run_schedule)
+            if not report_type:
+                print(f"⚠️ 未识别的RUN_SCHEDULE='{run_schedule}'，回退按小时判定逻辑。")
+            else:
+                # 初始化并强制发送指定报表类型
+                if not handler.initialize():
+                    print("❌ 定时汇报初始化失败")
+                    return 1
+
+                ok = asyncio.run(handler.send_scheduled_report(report_type))
+                status = "✅ 成功" if ok else "❌ 失败"
+                print(f"📊 {report_type}汇报: {status}")
+                return 0 if ok else 1
+
+        # 未提供 RUN_SCHEDULE（如手动触发），沿用原先的小时判定流程
+        results = handler.run_scheduled_reports_sync()
         if "error" in results:
             print(f"❌ 定时汇报失败: {results['error']}")
             return 1
 
-        # 输出结果
         if results:
             for report_type, success in results.items():
                 status = "✅ 成功" if success else "❌ 失败"
                 print(f"📊 {report_type}汇报: {status}")
         else:
             print("ℹ️ 当前时段无需发送汇报")
-
         return 0
     except Exception as e:
         print(f"❌ 定时汇报异常: {e}")
@@ -407,7 +446,7 @@ if __name__ == "__main__":
         mode = sys.argv[1]
 
     # 检查环境变量的运行模式配置
-    env_mode = os.getenv('FGI_RUN_MODE')
+    env_mode = os.getenv("FGI_RUN_MODE")
     if env_mode:
         mode = env_mode
 

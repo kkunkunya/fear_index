@@ -22,10 +22,12 @@ from src.config import (
 from src.state import load_state, days_since, today_utc_date
 from src.strategy import compute_fgi7, crossings, two_consecutive_ge
 
+
 # 避免循环导入，动态导入 fetch_fgi
 def fetch_fgi():
     """动态导入并调用fetch_fgi函数"""
     from src.fgi_notifier import fetch_fgi as _fetch_fgi
+
     return _fetch_fgi()
 
 
@@ -211,13 +213,16 @@ class FGIReportGenerator:
     def _generate_noon_report(self) -> str:
         """生成午报"""
         lines = []
+        # 去除固定分钟标注，避免与调度半点不一致
         lines.append("🌞 FGI午报")
-        lines.append(f"📅 {self.latest_date} 12:00 (UTC)")
+        lines.append(f"📅 {self.latest_date} (UTC)")
         lines.append("")
 
         # 中期状态
         lines.append("📊 中期状态:")
-        lines.append(f"  • FGI7: {self.today7:.2f} ({self.prev7:.2f} → {self.today7:.2f})")
+        lines.append(
+            f"  • FGI7: {self.today7:.2f} ({self.prev7:.2f} → {self.today7:.2f})"
+        )
 
         mood = self._get_market_mood(self.today7)
         lines.append(f"  • 市场情绪: {mood}")
@@ -234,8 +239,9 @@ class FGIReportGenerator:
     def _generate_evening_report(self) -> str:
         """生成晚报"""
         lines = []
+        # 去除固定分钟标注，避免与调度半点不一致
         lines.append("🌅 FGI晚报")
-        lines.append(f"📅 {self.latest_date} 20:00 (UTC)")
+        lines.append(f"📅 {self.latest_date} (UTC)")
         lines.append("")
 
         # 全日总结
@@ -291,10 +297,10 @@ class FGIReportGenerator:
     def _get_cooldown_status(self) -> List[str]:
         """获取冷却状态信息"""
         status_list = []
-        last_triggers = self.state.get('last_trigger_at', {})
+        last_triggers = self.state.get("last_trigger_at", {})
         today = today_utc_date()
 
-        for threshold in ['70', '80', '90']:
+        for threshold in ["70", "80", "90"]:
             last_trigger = last_triggers.get(threshold)
             if last_trigger:
                 days_passed = days_since(last_trigger, today)
@@ -372,7 +378,9 @@ class FGIReportGenerator:
 
         # 判断当前位置
         range_size = max_fgi - min_fgi
-        current_position = (self.latest_fgi - min_fgi) / range_size if range_size > 0 else 0.5
+        current_position = (
+            (self.latest_fgi - min_fgi) / range_size if range_size > 0 else 0.5
+        )
 
         if current_position > 0.8:
             position_desc = "高位区间"
@@ -418,10 +426,10 @@ class FGIReportGenerator:
                 points.append(f"接近{threshold}阈值 (还有{distance:.1f}点)")
 
         # 检查冷却状态
-        last_triggers = self.state.get('last_trigger_at', {})
+        last_triggers = self.state.get("last_trigger_at", {})
         today = today_utc_date()
 
-        for threshold_str in ['70', '80', '90']:
+        for threshold_str in ["70", "80", "90"]:
             last_trigger = last_triggers.get(threshold_str)
             if last_trigger:
                 days_passed = days_since(last_trigger, today)
@@ -500,15 +508,15 @@ if __name__ == "__main__":
             print("✅ 数据刷新成功")
 
             # 测试各种汇报
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("状态概览测试:")
             print(get_status_report())
 
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("详细汇报测试:")
             print(get_detailed_report())
 
-            print("\n" + "="*50)
+            print("\n" + "=" * 50)
             print("趋势分析测试:")
             print(get_trend_report())
 
