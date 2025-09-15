@@ -34,14 +34,14 @@ BOT_RATE_LIMIT = 5  # Bot命令使用频率限制（每分钟最多次数）
 
 # 定时汇报配置
 SCHEDULED_REPORTS_ENABLED = True  # 是否启用定时汇报
-MORNING_REPORT_UTC = 0   # 早报时间 (UTC小时，对应北京08:00)
-NOON_REPORT_UTC = 4      # 午报时间 (UTC小时，对应北京12:00)
+MORNING_REPORT_UTC = 0  # 早报时间 (UTC小时，对应北京08:00)
+NOON_REPORT_UTC = 4  # 午报时间 (UTC小时，对应北京12:00)
 EVENING_REPORT_UTC = 12  # 晚报时间 (UTC小时，对应北京20:00)
 
 # Bot命令配置
 BOT_COMMANDS = {
-    'status': '获取当前FGI状态概览',
-    'fgi': '获取详细FGI数据和分析',
-    'trend': '获取FGI趋势分析',
-    'help': '显示可用命令帮助'
+    "status": "获取当前FGI状态概览",
+    "fgi": "获取详细FGI数据和分析",
+    "trend": "获取FGI趋势分析",
+    "help": "显示可用命令帮助",
 }

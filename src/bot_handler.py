@@ -16,10 +16,18 @@ from collections import defaultdict
 # 导入telegram相关库
 try:
     from telegram import Update, BotCommand
-    from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+    from telegram.ext import (
+        Application,
+        CommandHandler,
+        MessageHandler,
+        filters,
+        ContextTypes,
+    )
     from telegram.constants import ParseMode
 except ImportError:
-    print("❌ 缺少 python-telegram-bot 库，请安装: pip install python-telegram-bot==21.5")
+    print(
+        "❌ 缺少 python-telegram-bot 库，请安装: pip install python-telegram-bot==21.5"
+    )
     sys.exit(1)
 
 # 添加项目路径
@@ -51,8 +59,8 @@ class FGIBotHandler:
 
         # 配置日志
         logging.basicConfig(
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            level=logging.INFO
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            level=logging.INFO,
         )
         self.logger = logging.getLogger(__name__)
 
@@ -63,8 +71,8 @@ class FGIBotHandler:
             return False
 
         # 获取环境变量
-        self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        admin_id_str = os.getenv('TELEGRAM_BOT_ADMIN_ID')
+        self.bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        admin_id_str = os.getenv("TELEGRAM_BOT_ADMIN_ID")
 
         if not self.bot_token:
             self.logger.error("缺少 TELEGRAM_BOT_TOKEN 环境变量")
@@ -103,7 +111,9 @@ class FGIBotHandler:
         self.app.add_handler(CommandHandler("trend", self.trend_command))
 
         # 添加消息处理器（处理非命令消息）
-        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        self.app.add_handler(
+            MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message)
+        )
 
         # 添加错误处理器
         self.app.add_error_handler(self.error_handler)
@@ -140,8 +150,10 @@ class FGIBotHandler:
             return True
 
         # 调试输出
-        if hasattr(self, 'logger'):
-            self.logger.debug(f"检查权限: user_id={user_id}, admin_id={self.admin_id}, BOT_ADMIN_ONLY={BOT_ADMIN_ONLY}")
+        if hasattr(self, "logger"):
+            self.logger.debug(
+                f"检查权限: user_id={user_id}, admin_id={self.admin_id}, BOT_ADMIN_ONLY={BOT_ADMIN_ONLY}"
+            )
 
         return user_id == self.admin_id
 
@@ -152,8 +164,7 @@ class FGIBotHandler:
 
         # 清理过期的请求记录
         self.rate_limiter[user_id] = [
-            req_time for req_time in self.rate_limiter[user_id]
-            if req_time > minute_ago
+            req_time for req_time in self.rate_limiter[user_id] if req_time > minute_ago
         ]
 
         # 检查是否超过限制
@@ -265,7 +276,9 @@ class FGIBotHandler:
             report = get_status_report()
 
             # 更新消息内容
-            await processing_msg.edit_text(f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+            await processing_msg.edit_text(
+                f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2
+            )
 
         except Exception as e:
             self.logger.error(f"状态命令处理失败: {e}")
@@ -294,12 +307,18 @@ class FGIBotHandler:
             if len(report) > 4000:  # Telegram消息长度限制
                 # 分段发送
                 parts = self._split_message(report, 3900)
-                await processing_msg.edit_text(f"```\n{parts[0]}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+                await processing_msg.edit_text(
+                    f"```\n{parts[0]}\n```", parse_mode=ParseMode.MARKDOWN_V2
+                )
 
                 for i, part in enumerate(parts[1:], 2):
-                    await update.message.reply_text(f"```\n{part}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+                    await update.message.reply_text(
+                        f"```\n{part}\n```", parse_mode=ParseMode.MARKDOWN_V2
+                    )
             else:
-                await processing_msg.edit_text(f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+                await processing_msg.edit_text(
+                    f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2
+                )
 
         except Exception as e:
             self.logger.error(f"FGI命令处理失败: {e}")
@@ -324,7 +343,9 @@ class FGIBotHandler:
             # 获取趋势分析
             report = get_trend_report()
 
-            await processing_msg.edit_text(f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2)
+            await processing_msg.edit_text(
+                f"```\n{report}\n```", parse_mode=ParseMode.MARKDOWN_V2
+            )
 
         except Exception as e:
             self.logger.error(f"趋势命令处理失败: {e}")
@@ -340,13 +361,13 @@ class FGIBotHandler:
         # 简单的智能回复
         message_text = update.message.text.lower()
 
-        if any(word in message_text for word in ['fgi', '恐慌', '贪婪', '指数']):
+        if any(word in message_text for word in ["fgi", "恐慌", "贪婪", "指数"]):
             await update.message.reply_text("📊 请使用 /fgi 命令获取详细的FGI数据分析")
-        elif any(word in message_text for word in ['趋势', '分析', '走势']):
+        elif any(word in message_text for word in ["趋势", "分析", "走势"]):
             await update.message.reply_text("📈 请使用 /trend 命令获取FGI趋势分析")
-        elif any(word in message_text for word in ['状态', '现在', '当前']):
+        elif any(word in message_text for word in ["状态", "现在", "当前"]):
             await update.message.reply_text("📊 请使用 /status 命令获取当前FGI状态")
-        elif any(word in message_text for word in ['帮助', 'help', '命令']):
+        elif any(word in message_text for word in ["帮助", "help", "命令"]):
             await update.message.reply_text("🆘 请使用 /help 命令查看使用帮助")
         else:
             await update.message.reply_text("🤖 请使用 /help 查看可用命令")
@@ -367,23 +388,23 @@ class FGIBotHandler:
             return [text]
 
         parts = []
-        lines = text.split('\n')
+        lines = text.split("\n")
         current_part = ""
 
         for line in lines:
-            if len(current_part + line + '\n') <= max_length:
-                current_part += line + '\n'
+            if len(current_part + line + "\n") <= max_length:
+                current_part += line + "\n"
             else:
                 if current_part:
-                    parts.append(current_part.rstrip('\n'))
-                    current_part = line + '\n'
+                    parts.append(current_part.rstrip("\n"))
+                    current_part = line + "\n"
                 else:
                     # 单行太长，强制分割
                     parts.append(line[:max_length])
-                    current_part = line[max_length:] + '\n'
+                    current_part = line[max_length:] + "\n"
 
         if current_part:
-            parts.append(current_part.rstrip('\n'))
+            parts.append(current_part.rstrip("\n"))
 
         return parts
 
@@ -466,7 +487,7 @@ async def process_bot_command(command: str, user_id: int = None) -> str:
 
 def is_bot_enabled() -> bool:
     """检查Bot是否启用"""
-    return BOT_COMMANDS_ENABLED and os.getenv('TELEGRAM_BOT_TOKEN') is not None
+    return BOT_COMMANDS_ENABLED and os.getenv("TELEGRAM_BOT_TOKEN") is not None
 
 
 if __name__ == "__main__":
