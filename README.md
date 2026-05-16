@@ -1,5 +1,10 @@
 # FGI恐慌贪婪指数监控项目
 
+## Portfolio positioning
+
+This is a compact automation utility: it monitors the Crypto Fear & Greed Index and pushes updates to Telegram. It is kept public as a practical Python automation example with a small operational surface.
+
+
 ## 项目简介
 
 本项目是一个基于GitHub Actions的24/7自动化加密货币Fear & Greed Index (FGI)监控系统。通过实时跟踪alternative.me提供的FGI数据，计算7天滑动平均值(FGI7)，并在特定阈值触发时通过Telegram发送卖出提醒。
